@@ -74,6 +74,27 @@ public sealed class DebouncerTests : FixturedUnitTest
     }
 
     [Fact]
+    public async Task Sync_Rapid_calls_collapse_to_single_execution()
+    {
+        await using var d = new Debouncer();
+
+        var hitCount = 0;
+        void Enqueue() =>
+            d.Debounce(100, () =>
+            {
+                Interlocked.Increment(ref hitCount);
+            });
+
+        Enqueue(); await Task.Delay(20, CancellationToken);
+        Enqueue(); await Task.Delay(20, CancellationToken);
+        Enqueue();
+
+        await Pause(150);
+
+        hitCount.Should().Be(1);
+    }
+
+    [Fact]
     public async Task RunLeading_invokes_immediately_and_again_after_delay()
     {
         await using var d = new Debouncer();

@@ -45,11 +45,10 @@ void OnResize()
 {
     debouncer.Debounce(
         delayMs: 250,
-        action: _ =>
+        action: () =>
         {
             // Runs on the thread-pool after 250 ms of quiescence
             SaveWindowLayout();
-            return Task.CompletedTask;
         });
 }
 ```
