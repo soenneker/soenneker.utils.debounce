@@ -4,8 +4,8 @@
 
 # ![](https://user-images.githubusercontent.com/4441470/224455560-91ed3ee7-f510-4041-a8d2-3fc093025112.png) Soenneker.Utils.Debounce
 
-A utility that lets you *debounce* asynchronous work in .NET.
-Give it a delay, async delegate, and the `Debouncer` guarantees that multiple rapid calls collapse into exactly one invocation.
+A utility that lets you *debounce* work in .NET.
+Give it a delay, async/sync delegate, and the `Debouncer` guarantees that multiple rapid calls collapse into exactly one invocation.
 
 ---
 
