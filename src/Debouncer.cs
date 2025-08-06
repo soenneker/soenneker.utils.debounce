@@ -33,6 +33,11 @@ public sealed class Debouncer : IDebouncer
 
             _timer.Change(delayMs, Timeout.Infinite);
         }
+        else
+        {
+            // Reset the timer for subsequent calls
+            _timer.Change(delayMs, Timeout.Infinite);
+        }
     }
 
     public void Debounce(int delayMs, Action<CancellationToken> action, bool runLeading = false, CancellationToken cancellationToken = default)
