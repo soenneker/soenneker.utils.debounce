@@ -7,7 +7,7 @@ namespace Soenneker.Utils.Debounce.Abstract;
 /// <summary>
 /// Delays execution of an async action until a specified interval has passed without new invocations. Ideal for throttling high-frequency operations like UI events, logging, or API calls.
 /// </summary>
-public interface IDebouncer : IAsyncDisposable
+public interface IDebouncer : IAsyncDisposable, IDisposable
 {
     /// <summary>
     /// Queues <paramref name="action"/> to run once no debounced call was

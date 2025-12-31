@@ -84,6 +84,23 @@ public sealed class Debouncer : IDebouncer
         }
     }
 
+    public void Dispose()
+    {
+        _timer.Dispose();
+
+        if (_runningTask is { } t)
+        {
+            try
+            {
+                t.GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException)
+            {
+                /* ignore – normal on dispose */
+            }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _timer.DisposeAsync().NoSync();
