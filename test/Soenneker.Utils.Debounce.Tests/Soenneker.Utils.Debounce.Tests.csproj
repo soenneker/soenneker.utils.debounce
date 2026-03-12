@@ -27,7 +27,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Soenneker.Utils.Debounce.csproj" />
+        <ProjectReference Include="..\..\src\Soenneker.Utils.Debounce\Soenneker.Utils.Debounce.csproj" />
     </ItemGroup>
 
     <ItemGroup>
