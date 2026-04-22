@@ -1,34 +1,33 @@
-﻿using AwesomeAssertions;
-using Soenneker.Tests.FixturedUnit;
+using AwesomeAssertions;
+using Soenneker.Tests.HostedUnit;
 using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Xunit;
 
 namespace Soenneker.Utils.Debounce.Tests;
 
-[Collection("Collection")]
-public sealed class DebouncerTests : FixturedUnitTest
+[ClassDataSource<Host>(Shared = SharedType.PerTestSession)]
+public sealed class DebouncerTests : HostedUnitTest
 {
 
-    public DebouncerTests(Fixture fixture, ITestOutputHelper output) : base(fixture, output)
+    public DebouncerTests(Host host) : base(host)
     {
     }
 
-    [Fact]
+    [Test]
     public void Default()
     {
 
     }
 
 
-    // Small jitter cushion so that CI boxes don’t fail on tight timing assertions
+    // Small jitter cushion so that CI boxes don�t fail on tight timing assertions
     private static Task Pause(int ms) => Task.Delay(ms + 25);
 
-    /* ───────── TASK overload ───────── */
+    /* --------- TASK overload --------- */
 
-    [Fact]
+    [Test]
     public async Task Executes_once_after_delay()
     {
         await using var d = new Debouncer();
@@ -48,10 +47,10 @@ public sealed class DebouncerTests : FixturedUnitTest
         sw.Stop();
 
         sw.ElapsedMilliseconds
-          .Should().BeInRange(90, 250);        // ~100 ms ± jitter
+          .Should().BeInRange(90, 250);        // ~100 ms � jitter
     }
 
-    [Fact]
+    [Test]
     public async Task Rapid_calls_collapse_to_single_execution()
     {
         await using var d = new Debouncer();
@@ -73,7 +72,7 @@ public sealed class DebouncerTests : FixturedUnitTest
         hitCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public async Task Sync_Rapid_calls_collapse_to_single_execution()
     {
         await using var d = new Debouncer();
@@ -94,7 +93,7 @@ public sealed class DebouncerTests : FixturedUnitTest
         hitCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public async Task RunLeading_invokes_immediately_and_again_after_delay()
     {
         await using var d = new Debouncer();
@@ -118,9 +117,9 @@ public sealed class DebouncerTests : FixturedUnitTest
         hitCount.Should().Be(2);
     }
 
-    /* ───────── cancellation & disposal ───────── */
+    /* --------- cancellation & disposal --------- */
 
-    [Fact]
+    [Test]
     public async Task DisposeAsync_cancels_and_awaits_inflight_work()
     {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -141,7 +140,7 @@ public sealed class DebouncerTests : FixturedUnitTest
         finished.Should().BeTrue();       // proves DisposeAsync awaited the task
     }
 
-    [Fact]
+    [Test]
     public async Task Canceled_token_prevents_execution()
     {
         await using var d = new Debouncer();
