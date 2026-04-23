@@ -22,7 +22,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
 
-    // Small jitter cushion so that CI boxes don’t fail on tight timing assertions
+    // Small jitter cushion so that CI boxes donï¿½t fail on tight timing assertions
     private static Task Pause(int ms) => Task.Delay(ms + 25);
 
     /* --------- TASK overload --------- */
@@ -41,13 +41,13 @@ public sealed class DebouncerTests : HostedUnitTest
             {
                 tcs.SetResult();
                 return Task.CompletedTask;
-            }, cancellationToken: CancellationToken);
+            }, cancellationToken: System.Threading.CancellationToken.None);
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), CancellationToken);
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), System.Threading.CancellationToken.None);
         sw.Stop();
 
         sw.ElapsedMilliseconds
-          .Should().BeInRange(90, 250);        // ~100 ms ± jitter
+          .Should().BeInRange(90, 250);        // ~100 ms ï¿½ jitter
     }
 
     [Test]
@@ -63,8 +63,8 @@ public sealed class DebouncerTests : HostedUnitTest
                 return Task.CompletedTask;
             });
 
-        Enqueue(); await Task.Delay(20, CancellationToken);
-        Enqueue(); await Task.Delay(20, CancellationToken);
+        Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
+        Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
         Enqueue();
 
         await Pause(150);
@@ -84,8 +84,8 @@ public sealed class DebouncerTests : HostedUnitTest
                 Interlocked.Increment(ref hitCount);
             });
 
-        Enqueue(); await Task.Delay(20, CancellationToken);
-        Enqueue(); await Task.Delay(20, CancellationToken);
+        Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
+        Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
         Enqueue();
 
         await Pause(150);
@@ -107,7 +107,7 @@ public sealed class DebouncerTests : HostedUnitTest
                 Interlocked.Increment(ref hitCount);
                 return Task.CompletedTask;
             },
-            runLeading: true, CancellationToken);
+            runLeading: true, System.Threading.CancellationToken.None);
 
         // leading edge
         hitCount.Should().Be(1);
@@ -132,7 +132,7 @@ public sealed class DebouncerTests : HostedUnitTest
                 started.SetResult();
                 await Task.Delay(150, ct);
                 finished = true;
-            }, cancellationToken: CancellationToken);
+            }, cancellationToken: System.Threading.CancellationToken.None);
 
             await started.Task;          // ensure the delegate actually began
         }                                 // DisposeAsync should block here
@@ -160,3 +160,5 @@ public sealed class DebouncerTests : HostedUnitTest
         ran.Should().BeFalse();
     }
 }
+
+
