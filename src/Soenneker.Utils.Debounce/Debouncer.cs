@@ -84,6 +84,9 @@ public sealed class Debouncer : IDebouncer
         }
     }
 
+    /// <summary>
+    /// Releases resources used by the current instance.
+    /// </summary>
     public void Dispose()
     {
         _timer.Dispose();
@@ -101,6 +104,10 @@ public sealed class Debouncer : IDebouncer
         }
     }
 
+    /// <summary>
+    /// Asynchronously releases resources used by the current instance.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     public async ValueTask DisposeAsync()
     {
         await _timer.DisposeAsync().NoSync();
