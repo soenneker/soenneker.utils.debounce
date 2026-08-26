@@ -141,6 +141,40 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
+    public async Task DisposeAsync_waits_for_overlapping_leading_and_trailing_work()
+    {
+        var releaseLeading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var trailingFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var leadingFinished = false;
+        var invocationCount = 0;
+        var d = new Debouncer();
+
+        d.Debounce(25, async _ =>
+        {
+            if (Interlocked.Increment(ref invocationCount) == 1)
+            {
+                await releaseLeading.Task;
+                leadingFinished = true;
+                return;
+            }
+
+            trailingFinished.SetResult();
+        }, runLeading: true);
+
+        await trailingFinished.Task.WaitAsync(TimeSpan.FromSeconds(1), CancellationToken.None);
+
+        Task disposeTask = d.DisposeAsync().AsTask();
+        await Task.Delay(25, CancellationToken.None);
+        disposeTask.IsCompleted.Should().BeFalse();
+
+        releaseLeading.SetResult();
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(1), CancellationToken.None);
+
+        leadingFinished.Should().BeTrue();
+        invocationCount.Should().Be(2);
+    }
+
+    [Test]
     public async Task Canceled_token_prevents_execution()
     {
         await using var d = new Debouncer();

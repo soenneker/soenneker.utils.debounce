@@ -11,9 +11,13 @@ namespace Soenneker.Utils.Debounce;
 public sealed class Debouncer : IDebouncer
 {
     private readonly Timer _timer;
+    private readonly object _sync = new();
 
-    private TaskWork? _pendingTask;
-    private Task? _runningTask;
+    private Func<CancellationToken, Task>? _pendingAction;
+    private CancellationToken _pendingToken;
+    private int _runningCount;
+    private TaskCompletionSource? _idleCompletion;
+    private bool _disposed;
 
     private static readonly TimerCallback _tickCb = static s => _ = ((Debouncer) s!).Tick().Preserve();
 
@@ -24,20 +28,29 @@ public sealed class Debouncer : IDebouncer
 
     public void Debounce(int delayMs, Func<CancellationToken, Task> action, bool runLeading = false, CancellationToken cancellationToken = default)
     {
-        TaskWork? previous = Interlocked.Exchange(ref _pendingTask, new TaskWork(action, cancellationToken));
+        ArgumentNullException.ThrowIfNull(action);
 
-        if (previous is null)
-        {
-            if (runLeading && _runningTask is null)
-                _ = Execute(action, cancellationToken); // fire leading
+        if (delayMs < Timeout.Infinite)
+            throw new ArgumentOutOfRangeException(nameof(delayMs));
 
-            _timer.Change(delayMs, Timeout.Infinite);
-        }
-        else
+        bool runNow;
+
+        lock (_sync)
         {
-            // Reset the timer for subsequent calls
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            bool hadPending = _pendingAction is not null;
+            _pendingAction = action;
+            _pendingToken = cancellationToken;
             _timer.Change(delayMs, Timeout.Infinite);
+
+            runNow = !hadPending && runLeading && _runningCount == 0;
+            if (runNow)
+                ReserveExecution();
         }
+
+        if (runNow)
+            _ = Execute(action, cancellationToken).Preserve();
     }
 
     public void Debounce(int delayMs, Action<CancellationToken> action, bool runLeading = false, CancellationToken cancellationToken = default)
@@ -60,19 +73,31 @@ public sealed class Debouncer : IDebouncer
 
     private async ValueTask Tick()
     {
-        TaskWork? taskToRun = Interlocked.Exchange(ref _pendingTask, null);
+        Func<CancellationToken, Task>? action;
+        CancellationToken token;
+        bool run;
 
-        if (taskToRun is not null && !taskToRun.Token.IsCancellationRequested)
-            await Execute(taskToRun.Action, taskToRun.Token).NoSync();
+        lock (_sync)
+        {
+            action = _pendingAction;
+            token = _pendingToken;
+            _pendingAction = null;
+            _pendingToken = default;
+
+            run = !_disposed && action is not null && !token.IsCancellationRequested;
+            if (run)
+                ReserveExecution();
+        }
+
+        if (run)
+            await Execute(action!, token).NoSync();
     }
 
-    private async Task Execute(Func<CancellationToken, Task> action, CancellationToken outerCt)
+    private async ValueTask Execute(Func<CancellationToken, Task> action, CancellationToken outerCt)
     {
-        _runningTask = action(outerCt); // ⬅ no linked token
-
         try
         {
-            await _runningTask.NoSync();
+            await action(outerCt).NoSync();
         }
         catch (OperationCanceledException) when (outerCt.IsCancellationRequested)
         {
@@ -80,7 +105,40 @@ public sealed class Debouncer : IDebouncer
         }
         finally
         {
-            _runningTask = null;
+            CompleteExecution();
+        }
+    }
+
+    private void ReserveExecution()
+    {
+        if (_runningCount++ == 0)
+            _idleCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private void CompleteExecution()
+    {
+        TaskCompletionSource? completion = null;
+
+        lock (_sync)
+        {
+            if (--_runningCount == 0)
+            {
+                completion = _idleCompletion;
+                _idleCompletion = null;
+            }
+        }
+
+        completion?.TrySetResult();
+    }
+
+    private Task? MarkDisposedAndGetRunningTask()
+    {
+        lock (_sync)
+        {
+            _disposed = true;
+            _pendingAction = null;
+            _pendingToken = default;
+            return _idleCompletion?.Task;
         }
     }
 
@@ -89,13 +147,14 @@ public sealed class Debouncer : IDebouncer
     /// </summary>
     public void Dispose()
     {
+        Task? runningTask = MarkDisposedAndGetRunningTask();
         _timer.Dispose();
 
-        if (_runningTask is { } t)
+        if (runningTask is not null)
         {
             try
             {
-                t.GetAwaiter().GetResult();
+                runningTask.GetAwaiter().GetResult();
             }
             catch (OperationCanceledException)
             {
@@ -110,13 +169,14 @@ public sealed class Debouncer : IDebouncer
     /// <returns>A task that represents the asynchronous operation.</returns>
     public async ValueTask DisposeAsync()
     {
+        Task? runningTask = MarkDisposedAndGetRunningTask();
         await _timer.DisposeAsync().NoSync();
 
-        if (_runningTask is { } t)
+        if (runningTask is not null)
         {
             try
             {
-                await t.NoSync();
+                await runningTask.NoSync();
             }
             catch (OperationCanceledException)
             {
@@ -124,6 +184,4 @@ public sealed class Debouncer : IDebouncer
             }
         }
     }
-
-    private sealed record TaskWork(Func<CancellationToken, Task> Action, CancellationToken Token);
 }
