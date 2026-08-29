@@ -19,11 +19,13 @@ Give it a delay, async/sync delegate, and the `Debouncer` guarantees that multip
 
 ---
 
-### Quick start
+## Installation
 
 ```bash
 dotnet add package Soenneker.Utils.Debounce
 ```
+
+## Quick start
 
 ```csharp
 using Soenneker.Utils.Debounce;
@@ -65,7 +67,7 @@ debouncer.Debounce(
     action: ct => Logger.LogAsync("Burst started", ct));
 ```
 
-Either wrap it in a `using` statement or dispose the debouncer when you’re done:
+Either wrap it in a `using` statement or dispose the debouncer when you're done:
 
 ```csharp
 await debouncer.DisposeAsync();
