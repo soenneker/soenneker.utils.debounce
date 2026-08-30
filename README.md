@@ -3,21 +3,9 @@
 [![](https://img.shields.io/nuget/dt/soenneker.utils.debounce.svg?style=for-the-badge)](https://www.nuget.org/packages/soenneker.utils.debounce/)
 [![](https://img.shields.io/github/actions/workflow/status/soenneker/soenneker.utils.debounce/codeql.yml?label=CodeQL&style=for-the-badge)](https://github.com/soenneker/soenneker.utils.debounce/actions/workflows/codeql.yml)
 
-# ![](https://user-images.githubusercontent.com/4441470/224455560-91ed3ee7-f510-4041-a8d2-3fc093025112.png) Soenneker.Utils.Debounce
+# Soenneker.Utils.Debounce
 
-A utility that lets you *debounce* work in .NET.
-Give it a delay, async/sync delegate, and the `Debouncer` guarantees that multiple rapid calls collapse into exactly one invocation.
-
----
-
-### Why would I need this?
-
-* **API calls:** Prevent hammering a server while the user types.
-* **Disk I/O:** Batch frequent save requests into a single write.
-* **Telemetry:** Send aggregated metrics after bursts of activity.
-* **Search boxes / auto-complete:** React only after the user pauses typing.
-
----
+A thread-safe trailing-edge debouncer for synchronous or `Task`-based callbacks.
 
 ## Installation
 
@@ -25,62 +13,57 @@ Give it a delay, async/sync delegate, and the `Debouncer` guarantees that multip
 dotnet add package Soenneker.Utils.Debounce
 ```
 
-## Quick start
+## Usage
+
+Keep one debouncer for each independent stream of calls. Every call replaces that debouncer's pending callback and restarts its timer:
 
 ```csharp
-using Soenneker.Utils.Debounce;
+await using var searchDebouncer = new Debouncer();
 
-var debouncer = new Debouncer();
-
-// Fire only once, 300 ms after the *last* request:
-void OnTextChanged(string text)
+void OnTextChanged(string text, CancellationToken cancellationToken)
 {
-    debouncer.Debounce(
+    searchDebouncer.Debounce(
         delayMs: 300,
         action: async ct =>
         {
-            var results = await SearchAsync(text, ct);
-            UpdateUI(results);
-        });
-}
-
-void OnResize()
-{
-    debouncer.Debounce(
-        delayMs: 250,
-        action: () =>
-        {
-            // Runs on the thread-pool after 250 ms of quiescence
-            SaveWindowLayout();
-        });
+            SearchResults results = await SearchAsync(text, ct);
+            UpdateUi(results);
+        },
+        cancellationToken: cancellationToken);
 }
 ```
 
-#### Leading-edge execution
+If calls continue arriving inside the 300 ms window, only the callback from the last call remains pending. Different logical operations should use different `Debouncer` instances; calls made through one instance intentionally replace each other.
 
-Pass `runLeading: true` if you want the first call to run immediately **and** the trailing call to run after the quiet period:
+The cancellation token is the caller-supplied token. It prevents a pending callback from starting when already cancelled and is passed to the callback, but the debouncer does not cancel it when a newer call arrives. Work that has already started is not stopped or awaited by a later `Debounce()` call.
+
+## Leading and trailing execution
 
 ```csharp
 debouncer.Debounce(
     delayMs: 500,
-    runLeading: true,
-    action: ct => Logger.LogAsync("Burst started", ct));
+    action: ct => RecordBurstAsync(ct),
+    runLeading: true);
 ```
 
-Either wrap it in a `using` statement or dispose the debouncer when you're done:
+`runLeading: true` runs the first callback in a burst immediately and still schedules a trailing callback after the quiet period. The leading callback can overlap the trailing callback if it runs longer than the delay; callback code must be safe for that possibility.
+
+## Lifetime and errors
+
+Dispose the debouncer from its owner, not from inside one of its callbacks. Disposal drops pending work, prevents new calls, and waits for callbacks that already started. It does not cancel those running callbacks.
+
+`Debounce()` is fire-and-forget and cannot return callback failures to its caller. Catch and log exceptions inside asynchronous callbacks when failure visibility matters:
 
 ```csharp
-await debouncer.DisposeAsync();
+debouncer.Debounce(250, async ct =>
+{
+    try
+    {
+        await SaveAsync(ct);
+    }
+    catch (Exception exception)
+    {
+        logger.LogError(exception, "Debounced save failed");
+    }
+});
 ```
-
-`DisposeAsync()` waits for any in-flight work to finish, ensuring graceful shutdown.
-
----
-
-### Design highlights
-
-* **Pure TPL:** Built on `System.Threading.Timer`
-* **Thread-safe:** Internal state is guarded with `Interlocked` swaps.
-* **Cancellation-friendly:** Each queued delegate receives *its own* `CancellationToken`.
-* **Zero allocations on idle:** Work objects are created only when you call `Debounce`.
-* **Tested:** xUnit suite covering timing, cancellation, and disposal semantics.
