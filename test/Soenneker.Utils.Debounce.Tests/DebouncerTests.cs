@@ -28,7 +28,7 @@ public sealed class DebouncerTests : HostedUnitTest
     /* --------- TASK overload --------- */
 
     [Test]
-    public async Task Executes_once_after_delay()
+    public async Task Executes_once_after_delay(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -41,7 +41,7 @@ public sealed class DebouncerTests : HostedUnitTest
             {
                 tcs.SetResult();
                 return Task.CompletedTask;
-            }, cancellationToken: System.Threading.CancellationToken.None);
+            }, cancellationToken: cancellationToken);
 
         await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), System.Threading.CancellationToken.None);
         sw.Stop();
@@ -51,7 +51,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task Rapid_calls_collapse_to_single_execution()
+    public async Task Rapid_calls_collapse_to_single_execution(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -61,7 +61,7 @@ public sealed class DebouncerTests : HostedUnitTest
             {
                 Interlocked.Increment(ref hitCount);
                 return Task.CompletedTask;
-            });
+            }, cancellationToken: cancellationToken);
 
         Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
         Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
@@ -73,7 +73,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task Sync_Rapid_calls_collapse_to_single_execution()
+    public async Task Sync_Rapid_calls_collapse_to_single_execution(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -82,7 +82,7 @@ public sealed class DebouncerTests : HostedUnitTest
             d.Debounce(100, () =>
             {
                 Interlocked.Increment(ref hitCount);
-            });
+            }, cancellationToken: cancellationToken);
 
         Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
         Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
@@ -94,7 +94,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task RunLeading_invokes_immediately_and_again_after_delay()
+    public async Task RunLeading_invokes_immediately_and_again_after_delay(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -107,7 +107,7 @@ public sealed class DebouncerTests : HostedUnitTest
                 Interlocked.Increment(ref hitCount);
                 return Task.CompletedTask;
             },
-            runLeading: true, System.Threading.CancellationToken.None);
+            runLeading: true, cancellationToken);
 
         // leading edge
         hitCount.Should().Be(1);
@@ -120,7 +120,7 @@ public sealed class DebouncerTests : HostedUnitTest
     /* --------- cancellation & disposal --------- */
 
     [Test]
-    public async Task DisposeAsync_cancels_and_awaits_inflight_work()
+    public async Task DisposeAsync_cancels_and_awaits_inflight_work(CancellationToken cancellationToken)
     {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var finished = false;
@@ -132,7 +132,7 @@ public sealed class DebouncerTests : HostedUnitTest
                 started.SetResult();
                 await Task.Delay(150, ct);
                 finished = true;
-            }, cancellationToken: System.Threading.CancellationToken.None);
+            }, cancellationToken: cancellationToken);
 
             await started.Task;          // ensure the delegate actually began
         }                                 // DisposeAsync should block here
@@ -141,7 +141,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task DisposeAsync_waits_for_overlapping_leading_and_trailing_work()
+    public async Task DisposeAsync_waits_for_overlapping_leading_and_trailing_work(CancellationToken cancellationToken)
     {
         var releaseLeading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var trailingFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -159,7 +159,7 @@ public sealed class DebouncerTests : HostedUnitTest
             }
 
             trailingFinished.SetResult();
-        }, runLeading: true);
+        }, runLeading: true, cancellationToken: cancellationToken);
 
         await trailingFinished.Task.WaitAsync(TimeSpan.FromSeconds(1), CancellationToken.None);
 
