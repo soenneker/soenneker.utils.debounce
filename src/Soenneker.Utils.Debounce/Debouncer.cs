@@ -111,8 +111,7 @@ public sealed class Debouncer : IDebouncer
 
     private void ReserveExecution()
     {
-        if (_runningCount++ == 0)
-            _idleCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _runningCount++;
     }
 
     private void CompleteExecution()
@@ -138,7 +137,10 @@ public sealed class Debouncer : IDebouncer
             _disposed = true;
             _pendingAction = null;
             _pendingToken = default;
-            return _idleCompletion?.Task;
+            if (_runningCount == 0)
+                return null;
+
+            return (_idleCompletion ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).Task;
         }
     }
 
