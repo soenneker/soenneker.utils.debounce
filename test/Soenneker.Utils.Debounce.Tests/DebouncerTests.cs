@@ -28,7 +28,7 @@ public sealed class DebouncerTests : HostedUnitTest
     /* --------- TASK overload --------- */
 
     [Test]
-    public async Task Executes_once_after_delay(CancellationToken cancellationToken)
+    public async ValueTask Executes_once_after_delay(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -51,7 +51,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task Rapid_calls_collapse_to_single_execution(CancellationToken cancellationToken)
+    public async ValueTask Rapid_calls_collapse_to_single_execution(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -73,7 +73,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task Sync_Rapid_calls_collapse_to_single_execution(CancellationToken cancellationToken)
+    public async ValueTask Sync_Rapid_calls_collapse_to_single_execution(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -94,7 +94,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task RunLeading_invokes_immediately_and_again_after_delay(CancellationToken cancellationToken)
+    public async ValueTask RunLeading_invokes_immediately_and_again_after_delay(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -120,7 +120,7 @@ public sealed class DebouncerTests : HostedUnitTest
     /* --------- cancellation & disposal --------- */
 
     [Test]
-    public async Task DisposeAsync_cancels_and_awaits_inflight_work(CancellationToken cancellationToken)
+    public async ValueTask DisposeAsync_cancels_and_awaits_inflight_work(CancellationToken cancellationToken)
     {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var finished = false;
@@ -141,7 +141,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task DisposeAsync_waits_for_overlapping_leading_and_trailing_work(CancellationToken cancellationToken)
+    public async ValueTask DisposeAsync_waits_for_overlapping_leading_and_trailing_work(CancellationToken cancellationToken)
     {
         var releaseLeading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var trailingFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -175,7 +175,7 @@ public sealed class DebouncerTests : HostedUnitTest
     }
 
     [Test]
-    public async Task Canceled_token_prevents_execution()
+    public async ValueTask Canceled_token_prevents_execution()
     {
         await using var d = new Debouncer();
 
