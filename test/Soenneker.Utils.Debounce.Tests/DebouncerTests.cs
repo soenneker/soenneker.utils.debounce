@@ -23,7 +23,7 @@ public sealed class DebouncerTests : HostedUnitTest
 
 
     // Small jitter cushion so that CI boxes don�t fail on tight timing assertions
-    private static Task Pause(int ms) => Task.Delay(ms + 25);
+    private static Task Pause(int ms, CancellationToken cancellationToken = default) => Task.Delay(ms + 25, cancellationToken: cancellationToken);
 
     /* --------- TASK overload --------- */
 
@@ -43,7 +43,7 @@ public sealed class DebouncerTests : HostedUnitTest
                 return Task.CompletedTask;
             }, cancellationToken: cancellationToken);
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), System.Threading.CancellationToken.None);
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), cancellationToken);
         sw.Stop();
 
         sw.ElapsedMilliseconds
@@ -63,11 +63,11 @@ public sealed class DebouncerTests : HostedUnitTest
                 return Task.CompletedTask;
             }, cancellationToken: cancellationToken);
 
-        Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
-        Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
+        Enqueue(); await Task.Delay(20, cancellationToken);
+        Enqueue(); await Task.Delay(20, cancellationToken);
         Enqueue();
 
-        await Pause(150);
+        await Pause(150, cancellationToken: cancellationToken);
 
         hitCount.Should().Be(1);
     }
@@ -84,11 +84,11 @@ public sealed class DebouncerTests : HostedUnitTest
                 Interlocked.Increment(ref hitCount);
             }, cancellationToken: cancellationToken);
 
-        Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
-        Enqueue(); await Task.Delay(20, System.Threading.CancellationToken.None);
+        Enqueue(); await Task.Delay(20, cancellationToken);
+        Enqueue(); await Task.Delay(20, cancellationToken);
         Enqueue();
 
-        await Pause(150);
+        await Pause(150, cancellationToken: cancellationToken);
 
         hitCount.Should().Be(1);
     }
@@ -112,7 +112,7 @@ public sealed class DebouncerTests : HostedUnitTest
         // leading edge
         hitCount.Should().Be(1);
 
-        await Pause(125);   // trailing edge
+        await Pause(125, cancellationToken: cancellationToken);   // trailing edge
 
         hitCount.Should().Be(2);
     }
@@ -161,21 +161,21 @@ public sealed class DebouncerTests : HostedUnitTest
             trailingFinished.SetResult();
         }, runLeading: true, cancellationToken: cancellationToken);
 
-        await trailingFinished.Task.WaitAsync(TimeSpan.FromSeconds(1), CancellationToken.None);
+        await trailingFinished.Task.WaitAsync(TimeSpan.FromSeconds(1), cancellationToken);
 
         Task disposeTask = d.DisposeAsync().AsTask();
-        await Task.Delay(25, CancellationToken.None);
+        await Task.Delay(25, cancellationToken);
         disposeTask.IsCompleted.Should().BeFalse();
 
         releaseLeading.SetResult();
-        await disposeTask.WaitAsync(TimeSpan.FromSeconds(1), CancellationToken.None);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(1), cancellationToken);
 
         leadingFinished.Should().BeTrue();
         invocationCount.Should().Be(2);
     }
 
     [Test]
-    public async ValueTask Canceled_token_prevents_execution()
+    public async ValueTask Canceled_token_prevents_execution(CancellationToken cancellationToken)
     {
         await using var d = new Debouncer();
 
@@ -189,7 +189,7 @@ public sealed class DebouncerTests : HostedUnitTest
         }, cancellationToken: cts.Token);
 
         await cts.CancelAsync();          // cancel before the delay elapses
-        await Pause(75);
+        await Pause(75, cancellationToken: cancellationToken);
 
         ran.Should().BeFalse();
     }
